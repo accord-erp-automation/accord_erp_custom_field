@@ -8,4 +8,4 @@ app_license = "mit"
 required_apps = ["erpnext"]
 
 after_install = "accord_state_core.install.after_install"
-
+after_migrate = "accord_state_core.install.after_migrate"

@@ -1,8 +1,8 @@
 import frappe
 
 DELIVERY_FLOW_STATE_SUBMITTED = 1
-CUSTOMER_STATE_PENDING = 0
-CUSTOMER_STATE_CONFIRMED = 1
+CUSTOMER_STATE_PENDING = 1
+CUSTOMER_STATE_CONFIRMED = 3
 CUSTOMER_STATE_REJECTED = 2
 
 
@@ -141,6 +141,6 @@ def _delivery_note_ui_status(doc):
         return "pending"
     if customer_state == CUSTOMER_STATE_REJECTED or reason:
         return "rejected"
-    if customer_state == CUSTOMER_STATE_CONFIRMED and current_status == "confirm":
+    if customer_state == CUSTOMER_STATE_CONFIRMED or current_status == "confirm":
         return "confirm"
     return "pending"

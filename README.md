@@ -1,31 +1,48 @@
-# Accord State Core
+# Accord ERP Custom Field
 
-Accord State Core is a minimal backend-only ERPNext custom app used to maintain Accord-specific workflow fields on `Delivery Note`.
+Accord ERP Custom Field is the ERPNext-side schema companion for the Accord mobile workflow. It is a small Frappe app that keeps the `Delivery Note` field structure stable so that `accord_mobile_server` can safely translate mobile actions into ERP documents without depending on ERPNext core changes.
 
-This app is intentionally small:
+## System Topology
 
-- no desk workspace
-- no page UI
-- no website routes
-- no separate business UI layer
-- only installable hooks and field/state helpers
+```mermaid
+graph LR
+  A[accord_mobile] --> B[accord_mobile_server]
+  B --> C[ERPNext]
+  D[accord_erp_custom_field] --> C
+  B --> D
+```
 
-## Purpose
+The practical execution chain is:
 
-The app exists to keep ERP-side workflow metadata stable for the mobile delivery flow.
+`accord_mobile -> accord_mobile_server -> ERPNext <- accord_erp_custom_field`
 
-Its responsibility is:
+## Repository Role
 
-- ensure required custom fields exist on `Delivery Note`
-- keep the visible UI status field available on the ERP form
-- keep internal workflow fields available for backend state handling
-- backfill UI status for existing `Delivery Note` records after migrate
+This repository owns the ERP schema layer for the Accord workflow.
 
-This app does not own mobile business logic by itself. It provides ERP field structure that the mobile backend can safely rely on.
+It is responsible for:
 
-## Managed Delivery Note Fields
+- defining and maintaining workflow-related custom fields on `Delivery Note`
+- making the visible UI status field available on the ERP form
+- preserving hidden workflow fields for backend state handling
+- backfilling existing records during migrate
+- keeping the ERP-side contract stable for the mobile backend
 
-Current managed fields:
+It does not own mobile screens. It does not own request routing. It does not own push notification logic.
+
+## App Identity
+
+The Git repository is named `accord_erp_custom_field`.
+
+The Git repository, Frappe app, and Python package name are all `accord_erp_custom_field`.
+
+That alignment keeps the bench install name, import path, and repository identity consistent.
+
+## Why This Repo Exists
+
+`accord_mobile_server` depends on a specific `Delivery Note` data model.
+
+That model requires the following fields:
 
 - `accord_flow_state`
 - `accord_customer_state`
@@ -34,70 +51,101 @@ Current managed fields:
 - `accord_status_section`
 - `accord_ui_status`
 
-Current intent:
+Keeping those fields in a dedicated ERP app is preferable to editing ERPNext core. This keeps upgrade risk lower and makes the business contract explicit.
 
-- internal fields are hidden
-- `accord_ui_status` is visible and read-only
-- `accord_ui_status` is placed in `Details`, after `posting_time`
+## Managed Delivery Note Fields
 
-Current expected UI status values:
+### Internal workflow fields
+
+- `accord_flow_state`
+- `accord_customer_state`
+- `accord_customer_reason`
+- `accord_delivery_actor`
+
+### UI scaffolding field
+
+- `accord_status_section`
+
+### Visible status field
+
+- `accord_ui_status`
+
+Expected intent:
+
+- internal fields remain hidden
+- `accord_ui_status` remains visible and read-only
+- `accord_ui_status` is placed under `Details` after `posting_time`
+
+Expected `accord_ui_status` values:
 
 - `pending`
 - `confirm`
 - `rejected`
 
-## Hooks
+## Behavioral Contract
 
-Relevant hook file:
+The ERP-side contract is simple and strict:
 
-- [accord_state_core/hooks.py](/home/wikki/local.git/erpnext_n1/erp/apps/accord_state_core/accord_state_core/hooks.py)
+- customer confirmation must not create a return document
+- customer rejection must eventually result in a real ERP return flow
+- workflow comments are audit history, not business truth
+- business truth lives in ERP fields and ERP documents
 
-Current hooks:
+This repository only guarantees the field layer. The mobile backend is responsible for generating the actual return document on reject.
 
-- `after_install`
-- `after_migrate`
-
-Both call into install helpers so field setup stays aligned even if the environment drifts.
-
-## Install / Migrate Behavior
+## Hooks And Migration
 
 Relevant files:
 
-- [accord_state_core/install.py](/home/wikki/local.git/erpnext_n1/erp/apps/accord_state_core/accord_state_core/install.py)
-- [accord_state_core/state/delivery_note_state.py](/home/wikki/local.git/erpnext_n1/erp/apps/accord_state_core/accord_state_core/state/delivery_note_state.py)
+- `accord_erp_custom_field/hooks.py`
+- `accord_erp_custom_field/install.py`
+- `accord_erp_custom_field/state/delivery_note_state.py`
 
-Current behavior:
+Hook behavior:
 
-1. ensure custom fields exist
-2. ensure field properties match the expected layout
-3. sync `accord_ui_status` for existing `Delivery Note` rows
+- `after_install` ensures the fields exist
+- `after_migrate` reasserts the expected layout and backfills status values
 
-## Current Business Semantics
+## Install And Update
 
-Important rule:
+Typical bench workflow:
 
-- `customer confirm` must not create a return document
-- `customer reject` must result in a real ERP return flow
+```bash
+bench --site <site-name> install-app accord_erp_custom_field
+bench --site <site-name> migrate
+```
 
-This app only manages fields and UI status support for that flow. The actual return creation is handled in the mobile backend.
+If the app is already installed, migration is still important because it revalidates field layout and keeps `accord_ui_status` in sync for existing documents.
 
-## Repo Shape
+## Verification
+
+After installation or migration, verify:
+
+- the custom fields exist on `Delivery Note`
+- `accord_ui_status` is visible and read-only
+- hidden fields are not exposed as user-facing controls
+- the mobile backend can read the fields without fallback failures
+
+## Relationship To The Other Repositories
+
+- Mobile client: [accord_mobile](https://github.com/WIKKIwk/accord_mobile)
+- Mobile backend: [accord_mobile_server](https://github.com/WIKKIwk/accord_mobile_server)
+
+The mobile backend uses this repo as the preferred ERP-side schema anchor.
+The mobile client depends on that backend contract indirectly.
+
+## File Map
 
 Important files:
 
-- `accord_state_core/hooks.py`
-- `accord_state_core/install.py`
-- `accord_state_core/state/delivery_note_state.py`
-- `accord_state_core/modules.txt`
+- `accord_erp_custom_field/hooks.py`
+- `accord_erp_custom_field/install.py`
+- `accord_erp_custom_field/state/delivery_note_state.py`
+- `accord_erp_custom_field/modules.txt`
+- `pyproject.toml`
 
-The nested package:
+## Operational Notes
 
-- `accord_state_core/accord_state_core/__init__.py`
-
-exists so Frappe module loading works correctly during migrate.
-
-## Notes
-
-- this app is meant to stay small
-- field management here is preferred over editing ERPNext core
-- if mobile delivery workflow semantics change, this README should be updated together with the hook/state code
+- Keep this app small and schema-focused
+- Prefer field management here over editing ERPNext core
+- If mobile workflow semantics change, update this README together with the backend README

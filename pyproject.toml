@@ -1,9 +1,9 @@
 [project]
-name = "accord_state_core"
+name = "accord_erp_custom_field"
 authors = [
     { name = "Wikki", email = "wikki@example.com" }
 ]
-description = "Minimal backend-only Accord state app for ERPNext"
+description = "ERPNext custom field app for the Accord mobile workflow"
 requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
@@ -14,4 +14,3 @@ requires = ["flit_core >=3.4,<4"]
 build-backend = "flit_core.buildapi"
 
 [tool.bench.dev-dependencies]
-
